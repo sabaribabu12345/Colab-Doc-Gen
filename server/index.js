@@ -16,7 +16,7 @@ app.use(cors());
 app.use(bodyParser.json());
 
 
-const PORT = process.env.PORT || 5002;
+const PORT = process.env.PORT || 5003;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 console.log("🔑 OpenRouter API Key:", OPENROUTER_API_KEY);
 
@@ -111,64 +111,65 @@ app.post('/upload', (req, res) => {
 
         const result = JSON.parse(stdout);
         const codeSnippets = result.code.join("\n");
+        const markdownContent = result.markdown.join("\n");
 
         try {
-            
             const prompt = `
-            You are a professional technical writer and software architect. Your task is to generate a comprehensive and professional documentation for the given code. The documentation should be suitable for knowledge transfer or project handover. It should explain the code's purpose, logic, and architecture clearly and concisely.
-            
-            Guidelines:
-            1. Do NOT include any raw code snippets in the documentation.
-            2. Maintain a professional and informative tone.
-            3. The content should be well-structured and formatted for readability.
-            4. Focus on explaining the logic, structure, and purpose rather than the code itself.
-            5. The maximum word count should be 2000.
-            
-            Documentation Format:
-            
-            ## Project Overview
-            - Briefly describe the overall purpose and goal of the code.
-            - Mention any key features or components implemented.
-            
-            ## Architecture and Design
-            - Explain the high-level architecture and structure of the code.
-            - Discuss how different components interact with each other.
-            
-            ## Key Functionalities
-            - Break down the core functionalities and how they are implemented.
-            - Explain how each functionality contributes to the overall goal.
-            
-            ## Workflow and Logic
-            - Describe the logical flow of the code from start to finish.
-            - Provide insights into decision-making and process flow.
-            
-            ## Key Concepts and Techniques
-            - Highlight important concepts, techniques, or algorithms used.
-            - Mention any libraries or frameworks utilized and why they were chosen.
-            
-            ## Error Handling and Performance
-            - Discuss how errors are handled and how performance is optimized.
-            - Mention any security considerations or best practices followed.
-            
-            ## Potential Challenges and Considerations
-            - Identify potential challenges or issues faced during development.
-            - Discuss how these were addressed or mitigated.
-            
-            ## Future Enhancements
-            - Suggest areas for improvement or future upgrades.
-            - Briefly mention any features that could be added to increase functionality or performance.
-            
-            ## Summary
-            - Summarize the key takeaways and overall project impact.
-            - End with a brief note on maintenance and support.
-            
-            Now, generate the documentation accordingly:
-            
-            ${codeSnippets}
-            `;
-            console.log("Prompt:", prompt);            
+You are a professional technical writer and software architect. Your task is to generate a comprehensive and professional documentation for the given code. The documentation should be suitable for knowledge transfer or project handover. It should explain the code's purpose, logic, and architecture clearly and concisely.
 
-            // ✅ Call OpenRouter API to Generate Documentation
+Guidelines:
+1. Do NOT include any raw code snippets in the documentation.
+2. Maintain a professional and informative tone.
+3. The content should be well-structured and formatted for readability.
+4. Focus on explaining the logic, structure, and purpose rather than the code itself.
+5. Avoid using special characters or unnecessary symbols.
+6. Use plain language and clear formatting to enhance understanding.
+7. Write the documentation as if explaining the project to a new team member.
+
+Documentation Format:
+
+Project Overview:
+- Briefly describe the overall purpose and goal of the code.
+- Mention key features or components implemented.
+
+Architecture and Design:
+- Explain the high-level architecture and structure of the code.
+- Describe how different components interact with each other.
+
+Key Functionalities:
+- Describe the core functionalities and how they are implemented.
+- Explain how each functionality contributes to the overall goal.
+
+Workflow and Logic:
+- Explain the logical flow of the code from start to finish.
+- Provide insights into decision-making and process flow.
+
+Key Concepts and Techniques:
+- Highlight important concepts, techniques, or algorithms used.
+- Mention any libraries or frameworks utilized and why they were chosen.
+
+Error Handling and Performance:
+- Discuss how errors are handled and how performance is optimized.
+- Mention any security considerations or best practices followed.
+
+Potential Challenges and Considerations:
+- Identify potential challenges or issues faced during development.
+- Discuss how these were addressed or mitigated.
+
+Future Enhancements:
+- Suggest areas for improvement or future upgrades.
+- Mention any features that could be added to increase functionality or performance.
+
+Summary:
+- Summarize the key takeaways and the overall project impact.
+- Include a brief note on maintenance and support.
+No headers or titles or sub-headers are required.
+Now, generate the documentation accordingly:
+${markdownContent}
+${codeSnippets}
+`;
+
+
             const response = await axios.post(
                 'https://openrouter.ai/api/v1/chat/completions',
                 {
@@ -197,6 +198,7 @@ app.post('/upload', (req, res) => {
         }
     });
 });
+
 
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
