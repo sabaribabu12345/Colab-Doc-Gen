@@ -17,7 +17,7 @@ function App() {
             setLoading(true);  // Start loading
 
             try {
-                const res = await axios.post('http://localhost:5003/upload', { notebook: content });
+                const res = await axios.post('http://localhost:5004/upload', { notebook: content });
                 setResponse(res.data.documentation);
                 setDownloadReady(true);  // Enable download
             } catch (error) {
@@ -34,7 +34,7 @@ function App() {
     // ✅ Download PDF
     const downloadPDF = async () => {
         try {
-            const response = await axios.get('http://localhost:5003/download', { responseType: 'blob' });
+            const response = await axios.get('http://localhost:5004/download', { responseType: 'blob' });
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
             link.href = url;
@@ -75,7 +75,6 @@ function App() {
                 </button>
             )}
 
-            {/* ✅ Display Documentation */}
             {/* ✅ Display Documentation */}
 {response && (
     <div className="mt-6 p-4 bg-gray-800 rounded-md shadow-lg">

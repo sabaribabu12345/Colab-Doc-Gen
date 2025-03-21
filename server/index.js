@@ -16,7 +16,7 @@ app.use(cors());
 app.use(bodyParser.json());
 
 
-const PORT = process.env.PORT || 5003;
+const PORT = process.env.PORT || 5004;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 console.log("🔑 OpenRouter API Key:", OPENROUTER_API_KEY);
 
@@ -163,7 +163,6 @@ Future Enhancements:
 Summary:
 - Summarize the key takeaways and the overall project impact.
 - Include a brief note on maintenance and support.
-No headers or titles or sub-headers are required.
 Now, generate the documentation accordingly:
 ${markdownContent}
 ${codeSnippets}
@@ -187,9 +186,16 @@ ${codeSnippets}
             );
 
             const aiResponse = response.data.choices[0].message.content;
+            const cleanContent = aiResponse
+                .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')  // Convert Markdown-style bold to HTML bold
+                .replace(/##(.*?)\n/g, '<h2>$1</h2>')    // Convert double hash to heading 2
+                .replace(/#(.*?)\n/g, '<h1>$1</h1>')      // Convert single hash to heading 1
+                .replace(/\n/g, '<br>');                 // Convert new lines to <br>
+
+            console.log(cleanContent);
 
             // ✅ Generate PDF from the AI-generated documentation
-            await generatePDF(aiResponse);
+            await generatePDF(cleanContent);
 
             res.json({ documentation: aiResponse });
         } catch (error) {
