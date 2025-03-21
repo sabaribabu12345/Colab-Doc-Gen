@@ -43,7 +43,7 @@ async function generatePDF(content) {
                         color: #333;
                     }
                     h1, h2, h3, h4 {
-                        color: #007bff;
+                        color:rgb(106, 0, 255);
                         margin-bottom: 10px;
                     }
                     h1 {
@@ -70,7 +70,6 @@ async function generatePDF(content) {
                 </style>
             </head>
             <body>
-                <h1>Generated Documentation</h1>
                 <div class="section">
                     ${content.replace(/\n/g, '<br>')}
                 </div>
@@ -78,7 +77,7 @@ async function generatePDF(content) {
         </html>
     `);
 
-    await page.pdf({ path: pdfPath, format: 'A4' });
+    await page.pdf({ path: pdfPath, format: 'A4', printBackground: true });
     await browser.close();
 
     return pdfPath;
@@ -97,7 +96,7 @@ app.get('/download', (req, res) => {
 
 // ✅ Upload Colab Notebook and Generate Documentation
 app.post('/upload', (req, res) => {
-    const { notebook } = req.body;
+    const { notebook,language } = req.body;
     if (!notebook) return res.status(400).json({ error: 'No notebook file provided' });
 
     const filePath = path.join(__dirname, 'scripts', 'uploaded_notebook.ipynb');
@@ -127,6 +126,8 @@ Guidelines:
 7. Write the documentation as if explaining the project to a new team member.
 
 Documentation Format:
+
+Language the documentation should be in:${language}
 
 Project Overview:
 - Briefly describe the overall purpose and goal of the code.

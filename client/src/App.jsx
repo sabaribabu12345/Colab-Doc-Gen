@@ -3,6 +3,8 @@ import axios from 'axios';
 
 function App() {
     const [notebook, setNotebook] = useState(null);
+    const [language, setLanguage] = useState("English");
+
     const [response, setResponse] = useState("");
     const [loading, setLoading] = useState(false);
     const [downloadReady, setDownloadReady] = useState(false);
@@ -17,7 +19,7 @@ function App() {
             setLoading(true);  // Start loading
 
             try {
-                const res = await axios.post('http://localhost:5004/upload', { notebook: content });
+                const res = await axios.post('http://localhost:5004/upload', { notebook: content,language });
                 setResponse(res.data.documentation);
                 setDownloadReady(true);  // Enable download
             } catch (error) {
@@ -49,7 +51,20 @@ function App() {
     return (
         <div className="min-h-screen p-6 bg-gray-900 text-white">
             <h1 className="text-4xl font-bold mb-6">📚 Colab Documentation Generator</h1>
+
+            <br />
+            <label>Select Language:</label>
+            <select value={language} onChange={(e) => setLanguage(e.target.value)}>
+                <option value="English">English</option>
+                <option value="Spanish">Spanish</option>
+                <option value="French">French</option>
+                <option value="German">German</option>
+                <option value="Chinese">Chinese</option>
+                <option value="Hindi">Hindi</option>
+            </select>
+            <br />
             
+            <br/>
             {/* ✅ Upload Button */}
             <input 
                 type="file" 
@@ -57,6 +72,7 @@ function App() {
                 onChange={handleUpload} 
                 className="mb-4 block p-2 border border-gray-700 bg-gray-800 text-white rounded-md"
             />
+            
 
             {/* ✅ Loading Spinner */}
             {loading && (
