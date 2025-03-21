@@ -8,18 +8,23 @@ function App() {
     const [response, setResponse] = useState("");
     const [loading, setLoading] = useState(false);
     const [downloadReady, setDownloadReady] = useState(false);
+    const[fileName, setFileName] = useState(null);
 
     // ✅ Handle File Upload
     const handleUpload = async (e) => {
         const file = e.target.files[0];
+        console.log(e.target.files);
+        if (!file) return;
+        setFileName(file.name);
         const reader = new FileReader();
 
         reader.onload = async (event) => {
             const content = event.target.result;
+            console.log(content);
             setLoading(true);  // Start loading
 
             try {
-                const res = await axios.post('http://localhost:5004/upload', { notebook: content,language });
+                const res = await axios.post('http://localhost:5004/upload', { notebook: content, language });
                 setResponse(res.data.documentation);
                 setDownloadReady(true);  // Enable download
             } catch (error) {
@@ -49,7 +54,7 @@ function App() {
     };
 
     return (
-        <div className="min-h-screen p-6 bg-gray-900 text-white">
+        <div className="min-h-screen p-6 text-center bg-gray-900 text-white">
             <h1 className="text-4xl font-bold mb-6">📚 Colab Documentation Generator</h1>
 
             <br />
@@ -63,28 +68,38 @@ function App() {
                 <option value="Hindi">Hindi</option>
             </select>
             <br />
-            
-            <br/>
+
+            <br />
             {/* ✅ Upload Button */}
-            <input 
-                type="file" 
-                accept=".ipynb" 
-                onChange={handleUpload} 
-                className="mb-4 block p-2 border border-gray-700 bg-gray-800 text-white rounded-md"
-            />
-            
+            <div className="justify-center">
+                <label
+                    htmlFor="fileUpload"
+                    className="cursor-pointer px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                    Upload File
+                </label>
+                <input
+                    id="fileUpload"
+                    type="file"
+                    accept=".ipynb"
+                    onChange={handleUpload}
+                    className="hidden"
+                />
+                {fileName && <p className="text-white mt-6">Selected File: {fileName}</p>}
+            </div>
+
 
             {/* ✅ Loading Spinner */}
             {loading && (
-                <div className="text-yellow-300 mb-4">
+                <div className="text-yellow-300 mb-4 mt-7">
                     🌀 Generating documentation... Please wait.
                 </div>
             )}
 
             {/* ✅ Download Button */}
             {downloadReady && (
-                <button 
-                    onClick={downloadPDF} 
+                <button
+                    onClick={downloadPDF}
                     className="mt-4 px-6 py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow-md"
                 >
                     📥 Download PDF
@@ -92,14 +107,14 @@ function App() {
             )}
 
             {/* ✅ Display Documentation */}
-{response && (
-    <div className="mt-6 p-4 bg-gray-800 rounded-md shadow-lg">
-        <h2 className="text-xl font-semibold mb-2">Generated Documentation:</h2>
-        <pre className="text-gray-300 whitespace-pre-wrap overflow-x-auto p-2 rounded-md bg-gray-700">
-            {response}
-        </pre>
-    </div>
-)}
+            {response && (
+                <div className="mt-6 p-4 bg-gray-800 rounded-md shadow-lg">
+                    <h2 className="text-xl font-semibold mb-2">Generated Documentation:</h2>
+                    <pre className="text-gray-300 whitespace-pre-wrap overflow-x-auto p-2 rounded-md bg-gray-700">
+                        {response}
+                    </pre>
+                </div>
+            )}
 
         </div>
     );
