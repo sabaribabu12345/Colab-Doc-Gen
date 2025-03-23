@@ -25,7 +25,17 @@ function App() {
 
             try {
                 const res = await axios.post('http://localhost:5004/upload', { notebook: content, language });
-                setResponse(res.data.documentation);
+                function formatResponse(response) {
+                    // Replace "### " with a space
+                    response = response.replace(/###\s*/g, " ");
+                    
+                    // Replace "**" with a space
+                    response = response.replace(/\*\*/g, " ");
+                    
+                    return response;
+                }
+                
+                setResponse(formatResponse(res.data.documentation));
                 setDownloadReady(true);  // Enable download
             } catch (error) {
                 console.error("Upload failed:", error);
@@ -66,6 +76,7 @@ function App() {
                 <option value="German">German</option>
                 <option value="Chinese">Chinese</option>
                 <option value="Hindi">Hindi</option>
+                <option value="Japanese">Japanese</option>
             </select>
             <br />
 
@@ -108,8 +119,8 @@ function App() {
 
             {/* ✅ Display Documentation */}
             {response && (
-                <div className="mt-6 p-4 bg-gray-800 rounded-md shadow-lg">
-                    <h2 className="text-xl font-semibold mb-2">Generated Documentation:</h2>
+                <div className="mt-6 p-4 bg-gray-800 rounded-md shadow-lg text-left">
+                    <h2 className="text-xl font-semibold mb-2 text-center">Generated Documentation:</h2>
                     <pre className="text-gray-300 whitespace-pre-wrap overflow-x-auto p-2 rounded-md bg-gray-700">
                         {response}
                     </pre>
