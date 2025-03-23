@@ -2,29 +2,38 @@ import React, { useState } from 'react';
 import axios from 'axios';
 
 function App() {
-    const [notebook, setNotebook] = useState(null);
+    const [notebooks, setNotebooks] = useState([]);
     const [language, setLanguage] = useState("English");
-
     const [response, setResponse] = useState("");
     const [loading, setLoading] = useState(false);
     const [downloadReady, setDownloadReady] = useState(false);
-    const[fileName, setFileName] = useState(null);
+    const [fileNames, setFileNames] = useState([]);
 
-    // ✅ Handle File Upload
+    // ✅ Handle Multiple File Uploads
     const handleUpload = async (e) => {
-        const file = e.target.files[0];
-        console.log(e.target.files);
-        if (!file) return;
-        setFileName(file.name);
-        const reader = new FileReader();
+        const files = Array.from(e.target.files); // Convert FileList to Array
+        if (files.length === 0) return;
 
-        reader.onload = async (event) => {
-            const content = event.target.result;
-            console.log(content);
+        setFileNames(files.map(file => file.name));
+
+        try {
+            // Read all files asynchronously
+            const notebooks = await Promise.all(
+                files.map(file => {
+                    return new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = (event) => resolve(event.target.result);
+                        reader.onerror = reject;
+                        reader.readAsText(file);
+                    });
+                })
+            );
+
             setLoading(true);  // Start loading
 
             try {
-                const res = await axios.post('http://localhost:5004/upload', { notebook: content, language });
+                // ✅ Send multiple notebooks to the backend
+                const res = await axios.post('http://localhost:5004/upload', { notebooks, language });
                 function formatResponse(response) {
                     // Replace "### " with a space
                     response = response.replace(/###\s*/g, " ");
@@ -43,9 +52,10 @@ function App() {
             } finally {
                 setLoading(false);  // Stop loading
             }
-        };
-
-        reader.readAsText(file);
+        } catch (error) {
+            console.error("Error reading files:", error);
+            setResponse("Error reading the files.");
+        }
     };
 
     // ✅ Download PDF
@@ -87,7 +97,7 @@ function App() {
                     htmlFor="fileUpload"
                     className="cursor-pointer px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                 >
-                    Upload File
+                    Upload Files
                 </label>
                 <input
                     id="fileUpload"
@@ -95,10 +105,19 @@ function App() {
                     accept=".ipynb"
                     onChange={handleUpload}
                     className="hidden"
+                    multiple  // Allow multiple file selection
                 />
-                {fileName && <p className="text-white mt-6">Selected File: {fileName}</p>}
+                {fileNames.length > 0 && (
+                    <div className="mt-4 text-white">
+                        <h3>Selected Files:</h3>
+                        <ul>
+                            {fileNames.map((name, index) => (
+                                <li key={index}>{name}</li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
             </div>
-
 
             {/* ✅ Loading Spinner */}
             {loading && (
@@ -126,7 +145,6 @@ function App() {
                     </pre>
                 </div>
             )}
-
         </div>
     );
 }

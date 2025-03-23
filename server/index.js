@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const { exec } = require('child_process');
+const { exec, execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
@@ -9,14 +9,10 @@ const puppeteer = require('puppeteer');
 const dotenv = require('dotenv');
 dotenv.config();
 
-
-
 const app = express();
 app.use(cors());
-app.use(bodyParser.json({ limit: '130mb' }));
-app.use(bodyParser.urlencoded({ limit: '130mb', extended: true }));
-
-
+app.use(bodyParser.json({ limit: '500mb' }));
+app.use(bodyParser.urlencoded({ limit: '500mb', extended: true }));
 
 const PORT = process.env.PORT || 5004;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
@@ -45,7 +41,7 @@ async function generatePDF(content) {
                         color: #333;
                     }
                     h1, h2, h3, h4 {
-                        color:rgb(106, 0, 255);
+                        color: rgb(106, 0, 255);
                         margin-bottom: 10px;
                     }
                     h1 {
@@ -85,7 +81,6 @@ async function generatePDF(content) {
     return pdfPath;
 }
 
-
 // ✅ Endpoint to download the generated PDF
 app.get('/download', (req, res) => {
     const filePath = path.join(__dirname, 'output', 'documentation.pdf');
@@ -96,26 +91,24 @@ app.get('/download', (req, res) => {
     }
 });
 
-// ✅ Upload Colab Notebook and Generate Documentation
-app.post('/upload', (req, res) => {
-    const { notebook,language } = req.body;
-    if (!notebook) return res.status(400).json({ error: 'No notebook file provided' });
+// ✅ Upload Multiple Colab Notebooks and Generate Documentation
+app.post('/upload', async (req, res) => {
+    const { notebooks, language } = req.body;
+    if (!notebooks || notebooks.length === 0) {
+        return res.status(400).json({ error: 'No notebook files provided' });
+    }
 
-    const filePath = path.join(__dirname, 'scripts', 'uploaded_notebook.ipynb');
-    fs.writeFileSync(filePath, notebook);
+    try {
+        const contents = notebooks.map((notebook, index) => {
+            const filePath = path.join(__dirname, 'scripts', `uploaded_notebook_${index}.ipynb`);
+            fs.writeFileSync(filePath, notebook);
 
-    exec(`python3 scripts/process_notebook.py ${filePath}`, async (error, stdout, stderr) => {
-        if (error) {
-            console.error(`Error processing notebook: ${stderr}`);
-            return res.status(500).json({ error: 'Error processing notebook' });
-        }
+            const result = JSON.parse(execSync(`python3 scripts/process_notebook.py ${filePath}`));
+            return result.markdown.concat(result.code).join("\n");
+        }).join("\n\n");
 
-        const result = JSON.parse(stdout);
-        const codeSnippets = result.code.join("\n");
-        const markdownContent = result.markdown.join("\n");
-
-        try {
-            const prompt = `
+        // ✅ Call AI to Generate Documentation
+        const prompt = `
 You are a professional technical writer and software architect. Your task is to generate a comprehensive and professional documentation for the given code. The documentation should be suitable for knowledge transfer or project handover. It should explain the code's purpose, logic, and architecture clearly and concisely.
 
 Guidelines:
@@ -129,7 +122,7 @@ Guidelines:
 
 Documentation Format:
 
-Language the documentation should be in:${language}
+Language the documentation should be in: ${language}
 
 Project Overview:
 - Briefly describe the overall purpose and goal of the code.
@@ -166,48 +159,41 @@ Future Enhancements:
 Summary:
 - Summarize the key takeaways and the overall project impact.
 - Include a brief note on maintenance and support.
+
 Now, generate the documentation accordingly:
-${markdownContent}
-${codeSnippets}
+${contents}
 `;
 
-
-            const response = await axios.post(
-                'https://openrouter.ai/api/v1/chat/completions',
-                {
-                    model: 'google/gemma-3-4b-it:free',
-                    messages: [{ role: 'user', content: prompt }],
-                    temperature: 0.7,
-                    max_tokens: 2000,
+        const response = await axios.post(
+            'https://openrouter.ai/api/v1/chat/completions',
+            {
+                model: 'google/gemma-3-4b-it:free',
+                messages: [{ role: 'user', content: prompt }],
+                temperature: 0.7,
+                max_tokens: 2000,
+            },
+            {
+                headers: {
+                    'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                    'Content-Type': 'application/json',
                 },
-                {
-                    headers: {
-                        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-                        'Content-Type': 'application/json',
-                    },
-                }
-            );
+            }
+        );
 
-            const aiResponse = response.data.choices[0].message.content;
-            const cleanContent = aiResponse
-                .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')  // Convert Markdown-style bold to HTML bold
-                .replace(/##(.*?)\n/g, '<h2>$1</h2>')    // Convert double hash to heading 2
-                .replace(/#(.*?)\n/g, '<h1>$1</h1>')      // Convert single hash to heading 1
-                .replace(/\n/g, '<br>');                 // Convert new lines to <br>
+        const aiResponse = response.data.choices[0].message.content;
+        const cleanContent = aiResponse.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/##(.*?)\n/g, '<h2>$1</h2>').replace(/#(.*?)\n/g, '<h1>$1</h1>').replace(/\n/g, '<br>');
 
-            console.log(cleanContent);
+        console.log("Generated Documentation:", cleanContent);
 
-            // ✅ Generate PDF from the AI-generated documentation
-            await generatePDF(cleanContent);
+        // ✅ Generate PDF from the AI-generated documentation
+        await generatePDF(cleanContent);
 
-            res.json({ documentation: aiResponse });
-        } catch (error) {
-            console.error("❌ OpenRouter API Error:", error.response?.data || error.message);
-            res.status(500).json({ error: 'Error processing AI request' });
-        }
-    });
+        res.json({ documentation: aiResponse });
+    } catch (error) {
+        console.error("❌ Error during documentation generation:", error.message);
+        res.status(500).json({ error: 'Error processing multiple notebooks' });
+    }
 });
-
 
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
