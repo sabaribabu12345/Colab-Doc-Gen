@@ -10,13 +10,33 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 const app = express();
-app.use(cors());
+
+// Debug middleware
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    console.log('Headers:', req.headers);
+    console.log('Body:', req.body);
+    next();
+});
+
+// Middleware
+app.use(cors({
+    origin: 'http://localhost:5173',
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(bodyParser.json({ limit: '500mb' }));
 app.use(bodyParser.urlencoded({ limit: '500mb', extended: true }));
 
 const PORT = process.env.PORT || 5004;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 console.log("🔑 OpenRouter API Key:", OPENROUTER_API_KEY);
+
+// Test route
+app.get('/test', (req, res) => {
+    res.json({ message: 'Server is running' });
+});
 
 // ✅ Generate PDF using Puppeteer
 async function generatePDF(content) {
@@ -81,8 +101,30 @@ async function generatePDF(content) {
     return pdfPath;
 }
 
-// ✅ Endpoint to download the generated PDF
-app.get('/download', (req, res) => {
+// API Routes
+app.post('/api/upload', async (req, res) => {
+    try {
+        const { notebooks, language } = req.body;
+        if (!notebooks || notebooks.length === 0) {
+            return res.status(400).json({ error: 'No notebook files provided' });
+        }
+
+        // Process notebooks
+        const contents = notebooks.map((notebook, index) => {
+            const filePath = path.join(__dirname, 'temp', `uploaded_notebook_${index}.ipynb`);
+            fs.writeFileSync(filePath, notebook);
+            return notebook;
+        }).join("\n\n");
+
+        // For now, just echo back the content
+        res.json({ documentation: contents });
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).json({ error: 'Error processing notebooks' });
+    }
+});
+
+app.get('/api/download', (req, res) => {
     const filePath = path.join(__dirname, 'output', 'documentation.pdf');
     if (fs.existsSync(filePath)) {
         res.download(filePath);
@@ -91,110 +133,36 @@ app.get('/download', (req, res) => {
     }
 });
 
-// ✅ Upload Multiple Colab Notebooks and Generate Documentation
-app.post('/upload', async (req, res) => {
-    const { notebooks, language } = req.body;
-    if (!notebooks || notebooks.length === 0) {
-        return res.status(400).json({ error: 'No notebook files provided' });
-    }
+// 404 handler
+app.use((req, res) => {
+    console.log('404 Not Found:', req.method, req.url);
+    res.status(404).json({ 
+        error: 'Not Found',
+        path: req.url,
+        method: req.method
+    });
+});
 
-    try {
-        const contents = notebooks.map((notebook, index) => {
-            const filePath = path.join(__dirname, 'scripts', `uploaded_notebook_${index}.ipynb`);
-            fs.writeFileSync(filePath, notebook);
+// Error handler
+app.use((err, req, res, next) => {
+    console.error('Error:', err);
+    res.status(500).json({ 
+        error: 'Internal Server Error',
+        message: err.message
+    });
+});
 
-            const result = JSON.parse(execSync(`python3 scripts/process_notebook.py ${filePath}`));
-            return result.markdown.concat(result.code).join("\n");
-        }).join("\n\n");
-
-        // ✅ Call AI to Generate Documentation
-        const prompt = `
-You are a professional technical writer and software architect. Your task is to generate a comprehensive and professional documentation for the given code. The documentation should be suitable for knowledge transfer or project handover. It should explain the code's purpose, logic, and architecture clearly and concisely.
-
-Guidelines:
-1. Do NOT include any raw code snippets in the documentation.
-2. Maintain a professional and informative tone.
-3. The content should be well-structured and formatted for readability.
-4. Focus on explaining the logic, structure, and purpose rather than the code itself.
-5. Avoid using special characters or unnecessary symbols.
-6. Use plain language and clear formatting to enhance understanding.
-7. Write the documentation as if explaining the project to a new team member.
-
-Documentation Format:
-
-Language the documentation should be in: ${language}
-
-Project Overview:
-- Briefly describe the overall purpose and goal of the code.
-- Mention key features or components implemented.
-
-Architecture and Design:
-- Explain the high-level architecture and structure of the code.
-- Describe how different components interact with each other.
-
-Key Functionalities:
-- Describe the core functionalities and how they are implemented.
-- Explain how each functionality contributes to the overall goal.
-
-Workflow and Logic:
-- Explain the logical flow of the code from start to finish.
-- Provide insights into decision-making and process flow.
-
-Key Concepts and Techniques:
-- Highlight important concepts, techniques, or algorithms used.
-- Mention any libraries or frameworks utilized and why they were chosen.
-
-Error Handling and Performance:
-- Discuss how errors are handled and how performance is optimized.
-- Mention any security considerations or best practices followed.
-
-Potential Challenges and Considerations:
-- Identify potential challenges or issues faced during development.
-- Discuss how these were addressed or mitigated.
-
-Future Enhancements:
-- Suggest areas for improvement or future upgrades.
-- Mention any features that could be added to increase functionality or performance.
-
-Summary:
-- Summarize the key takeaways and the overall project impact.
-- Include a brief note on maintenance and support.
-
-Now, generate the documentation accordingly:
-${contents}
-`;
-
-        const response = await axios.post(
-            'https://openrouter.ai/api/v1/chat/completions',
-            {
-                model: 'google/gemma-3-4b-it:free',
-                messages: [{ role: 'user', content: prompt }],
-                temperature: 0.7,
-                max_tokens: 2000,
-            },
-            {
-                headers: {
-                    'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-                    'Content-Type': 'application/json',
-                },
-            }
-        );
-
-        const aiResponse = response.data.choices[0].message.content;
-        const cleanContent = aiResponse.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/##(.*?)\n/g, '<h2>$1</h2>').replace(/#(.*?)\n/g, '<h1>$1</h1>').replace(/\n/g, '<br>');
-
-        console.log("Generated Documentation:", cleanContent);
-
-        // ✅ Generate PDF from the AI-generated documentation
-        await generatePDF(cleanContent);
-
-        res.json({ documentation: aiResponse });
-    } catch (error) {
-        console.error("❌ Error during documentation generation:", error.message);
-        res.status(500).json({ error: 'Error processing multiple notebooks' });
+// Create necessary directories
+const dirs = ['temp', 'output'];
+dirs.forEach(dir => {
+    const dirPath = path.join(__dirname, dir);
+    if (!fs.existsSync(dirPath)) {
+        fs.mkdirSync(dirPath, { recursive: true });
     }
 });
 
+// Start server
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`Test the server at http://localhost:${PORT}/test`);
 });

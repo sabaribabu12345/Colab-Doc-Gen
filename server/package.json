@@ -1,24 +1,29 @@
 {
-  "name": "server",
+  "name": "document-generator-server",
   "version": "1.0.0",
+  "description": "Server for Jupyter notebook documentation generator",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "jest"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
   "dependencies": {
-    "axios": "^1.8.4",
-    "bcrypt": "^5.1.1",
-    "body-parser": "^1.20.3",
+    "axios": "^1.6.7",
+    "body-parser": "^1.20.2",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "express-validator": "^7.2.1",
-    "jsonwebtoken": "^9.0.2",
-    "marked": "^15.0.7",
-    "puppeteer": "^24.4.0"
+    "dotenv": "^16.4.5",
+    "express": "^4.18.2",
+    "puppeteer": "^22.0.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
